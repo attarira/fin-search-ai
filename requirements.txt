@@ -7,6 +7,5 @@ pdfplumber
 pymupdf
 unstructured
 python-dotenv
-instructor-embedding
 qdrant-client
 chromadb
