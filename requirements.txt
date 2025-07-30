@@ -1,5 +1,5 @@
 faiss-cpu
-openai
+sentence-transformers
 langchain
 streamlit
 fastapi

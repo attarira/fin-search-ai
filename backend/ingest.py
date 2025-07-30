@@ -3,32 +3,21 @@ import json
 import faiss
 import numpy as np
 from typing import List, Dict
-from dotenv import load_dotenv
-from openai import OpenAI
 from utils.pdf_parser import parse_pdf
 from utils.text_cleaner import chunk_text
-
-# Load API keys from .env
-load_dotenv()
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-# Initialize OpenAI client
-client = OpenAI(api_key=OPENAI_API_KEY)
+from sentence_transformers import SentenceTransformer
 
 DATA_DIR = "data/sample_docs"
 INDEX_PATH = "data/faiss_index.bin"
 META_PATH = "data/faiss_metadata.json"
 
-EMBEDDING_MODEL = "text-embedding-3-small"
+# Use FinBERT embedding model from HuggingFace
+FINBERT_MODEL = "yiyanghkust/finbert-embedding"
+model = SentenceTransformer(FINBERT_MODEL)
 
-
-def get_embedding(text: str) -> List[float]:
-    """Get embedding from OpenAI API."""
-    response = client.embeddings.create(
-        input=[text],
-        model=EMBEDDING_MODEL
-    )
-    return response.data[0].embedding
+def get_embedding(text: str) -> np.ndarray:
+    """Get embedding from FinBERT."""
+    return model.encode(text)
 
 
 def process_folder(folder_path: str = DATA_DIR):
@@ -45,9 +34,10 @@ def process_folder(folder_path: str = DATA_DIR):
 
 
 def build_faiss_index(chunks: List[Dict]):
-    print("Generating embeddings...")
-    embeddings = [get_embedding(chunk['text']) for chunk in chunks]
-    dim = len(embeddings[0])
+    print("Generating embeddings with FinBERT...")
+    texts = [chunk['text'] for chunk in chunks]
+    embeddings = model.encode(texts)
+    dim = embeddings.shape[1]
     index = faiss.IndexFlatL2(dim)
     index.add(np.array(embeddings).astype('float32'))
     faiss.write_index(index, INDEX_PATH)

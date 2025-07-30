@@ -1,28 +1,20 @@
+
 import os
 import json
 import faiss
 import numpy as np
 from typing import List, Dict, Tuple
-from dotenv import load_dotenv
-from openai import OpenAI
-
-# Load API keys from .env
-load_dotenv()
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-client = OpenAI(api_key=OPENAI_API_KEY)
+import requests
 
 INDEX_PATH = "data/faiss_index.bin"
 META_PATH = "data/faiss_metadata.json"
-EMBEDDING_MODEL = "text-embedding-3-small"
 
 
 def get_query_embedding(query: str) -> List[float]:
-    response = client.embeddings.create(
-        input=[query],
-        model=EMBEDDING_MODEL
-    )
-    return response.data[0].embedding
+    # Use FinBERT for query embedding (same as ingest)
+    from sentence_transformers import SentenceTransformer
+    model = SentenceTransformer("yiyanghkust/finbert-embedding")
+    return model.encode(query)
 
 
 def search_index(query: str, top_k: int = 5) -> List[Dict]:
@@ -53,13 +45,18 @@ def generate_answer(query: str, contexts: List[Dict]) -> Dict:
         f"Highlight the most relevant text.\n"
         f"\nQuestion: {query}\n\nSources:\n{context_str}\n\nAnswer:"
     )
-    response = client.chat.completions.create(
-        model="gpt-4-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,
-        max_tokens=512
-    )
-    answer = response.choices[0].message.content
+    # Use Ollama local Llama model for generation
+    ollama_url = "http://localhost:11434/api/generate"
+    payload = {
+        "model": "llama3.1",
+        "prompt": prompt,
+        "options": {"temperature": 0.2, "num_predict": 512}
+    }
+    response = requests.post(ollama_url, json=payload)
+    if response.status_code == 200:
+        answer = response.json().get("response", "")
+    else:
+        answer = f"Error from Ollama: {response.text}"
     return {
         "answer": answer,
         "sources": [
